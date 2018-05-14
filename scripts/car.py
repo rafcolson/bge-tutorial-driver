@@ -11,6 +11,7 @@ constraints.setContactBreakingTreshold(0.005)
 
 BRAND_PROP_NAME             = "BRAND"
 STEERING_WHEEL_PROP_NAME    = "STEERING_WHEEL"
+SPARE_WHEEL_PROP_NAME       = "SPARE_WHEEL"
 WHEEL_PROP_NAME             = "WHEEL"
 VISUAL_PROP_NAME            = "VISUAL"
 DRIVER_SEAT_PROP_NAME       = "DRIVER_SEAT"
@@ -122,12 +123,15 @@ class Car(types.KX_GameObject):
         self.turn_right = self.sensors["turn_right"]
         self.action = self.sensors["action"]
         
-        # get and store wheels and steering wheel
+        # get and store wheels, spare wheel name and steering wheel
         
         wheels = {}
         for obj in self.children:
             if STEERING_WHEEL_PROP_NAME in obj:
                 self.steering_wheel = obj
+            elif SPARE_WHEEL_PROP_NAME in obj:
+                self.wheel_col_name = obj.name
+                obj.endObject() # optional
             elif WHEEL_PROP_NAME in obj:
                 wheels[obj] = obj.localPosition.xyz
         self.wheels = OrderedDict(sorted(wheels.items(), key=lambda item: item[0][WHEEL_PROP_NAME]))
@@ -169,7 +173,7 @@ class Car(types.KX_GameObject):
         constraint = constraints.createConstraint(self.getPhysicsId(), 0, constraints.VEHICLE_CONSTRAINT)
         self.constraint = constraints.getVehicleConstraint(constraint.getConstraintId())
         
-        # move wheels to vehicle constraint and set values
+        # move wheels to vehicle constraint and set values (and remove collision objects)
         
         for i, wheel in enumerate(self.wheels):
             wheel.removeParent()
@@ -190,6 +194,9 @@ class Car(types.KX_GameObject):
             self.constraint.setSuspensionStiffness(self.STIFFNESS_VAL, i)
             self.constraint.setRollInfluence(self.ROLL_VAL, i)
             
+            if self.wheel_col_name in wheel.children:
+                wheel.children[self.wheel_col_name].endObject()
+                
         # apply steering value
         
         self.constraint.setSteeringValue(self.steering_val, 0)
@@ -200,7 +207,7 @@ class Car(types.KX_GameObject):
         if self.constraint is None:
             return
             
-        # parent wheels
+        # parent wheels and add collision objects
         
         ori = Matrix.Rotation(self.steering_val, 3, "Z")
         for i, wheel in enumerate(self.wheels):
@@ -209,6 +216,11 @@ class Car(types.KX_GameObject):
             if i < 2:
                 wheel.localOrientation = ori
                 
+            wheel_col = self.scene.addObject(self.wheel_col_name)
+            wheel_col.visible = False
+            wheel_col.setParent(wheel)
+            wheel_col.worldTransform = wheel.worldTransform
+            
         # remove vehicle constraint
         
         constraints.removeConstraint(self.constraint.getConstraintId())
@@ -299,16 +311,22 @@ class Car(types.KX_GameObject):
         if hit_obj in self.children:
             return
         
-        if isinstance(hit_obj, Car) and hit_obj.driver is None:
-            hit_obj.timer = 0
+        hit_car = None
+        if SPARE_WHEEL_PROP_NAME in hit_obj:
+            hit_car = hit_obj.parent.parent
+        elif isinstance(hit_obj, Car):
+            hit_car = hit_obj
             
-            if hit_obj.isSuspendDynamics:
-                hit_obj.restoreDynamics()
+        if hit_car is not None and hit_car.driver is None:
+            hit_car.timer = 0
+            
+            if hit_car.isSuspendDynamics:
+                hit_car.restoreDynamics()
                 
-            if hit_obj.constraint is None:
-                hit_obj.add_constraint()
+            if hit_car.constraint is None:
+                hit_car.add_constraint()
                 
-            hit_obj.update = hit_obj.settle
+            hit_car.update = hit_car.settle
                 
     # STATES
     
