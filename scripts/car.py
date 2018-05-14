@@ -23,6 +23,7 @@ FRONT_WHEEL_DRIVE           = 0
 REAR_WHEEL_DRIVE            = 1
 FOUR_WHEEL_DRIVE            = 2
 
+VELOCITY_MIN                = 0.5
 SETTLE_TIME                 = 120
 
 # DEFINE BRANDS
@@ -225,6 +226,19 @@ class Car(types.KX_GameObject):
         self.update = self.start
         self.door_sensor.collisionCallbacks.clear()
         
+    def remove_driver(self):
+        player = self.driver
+        player.removeParent()
+        player.restoreDynamics()
+        player.worldLinearVelocity.zero()
+        player.worldAngularVelocity.zero()
+        player.alignAxisToVect((0, 0, 1), 2)
+        player.update = player.active
+        self.driver = None
+        
+        self.update = self.idle
+        self.door_sensor.collisionCallbacks.append(self.door_sensor_cb)
+        
     # CALLBACKS
     
     def door_sensor_cb(self, hit_obj):
@@ -249,6 +263,10 @@ class Car(types.KX_GameObject):
         self.update = self.drive
         
     def drive(self):
+        
+        if self.action.positive:
+            self.update = self.park
+            return
         
         # get values from input
         
@@ -305,6 +323,14 @@ class Car(types.KX_GameObject):
         ori = Matrix.Rotation(-self.steering_val * self.STEERING_WHEEL_TURN_FAC, 3, "Y")
         self.steering_wheel.localOrientation = ori
         
+    def park(self):
+        if self.worldLinearVelocity.length + self.worldAngularVelocity.length < VELOCITY_MIN:
+            self.driver.worldPosition -= self.door_sensor.getAxisVect((1, 0, 0))
+            self.remove_driver()
+            self.update = self.settle
+        else:
+            self.slowdown()
+            
     def settle(self):
         if self.timer == SETTLE_TIME:
             self.suspendDynamics()
