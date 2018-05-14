@@ -1,9 +1,12 @@
 from bge import types
+from collections import OrderedDict
 import utils
 
 # SET FINAL CONSTANTS
 
 BRAND_PROP_NAME             = "BRAND"
+STEERING_WHEEL_PROP_NAME    = "STEERING_WHEEL"
+WHEEL_PROP_NAME             = "WHEEL"
 
 WHEELS_DOWN_DIR             = (0.0, 0.0, -1.0)
 WHEELS_AXLE_DIR             = (-1.0, 0.0, 0.0)
@@ -90,9 +93,23 @@ class Car(types.KX_GameObject):
         self.turn_right = self.sensors["turn_right"]
         self.action = self.sensors["action"]
         
+        # get and store wheels and steering wheel
+        
+        wheels = {}
+        for obj in self.children:
+            if STEERING_WHEEL_PROP_NAME in obj:
+                self.steering_wheel = obj
+            elif WHEEL_PROP_NAME in obj:
+                wheels[obj] = obj.localPosition.xyz
+        self.wheels = OrderedDict(sorted(wheels.items(), key=lambda item: item[0][WHEEL_PROP_NAME]))
+        
         # set initial state
         
         self.update = self.idle
+        
+        # set max linear velocity
+        
+        self.linVelocityMax = self.LINEAR_VELOCITY_MAX
         
     # STATES
     
