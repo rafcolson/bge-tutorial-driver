@@ -1,7 +1,7 @@
 from bge import types, constraints
 from collections import OrderedDict
 from mathutils import Matrix
-import utils
+import math, utils
 
 # SET FINAL CONSTANTS
 
@@ -111,7 +111,7 @@ class Car(types.KX_GameObject):
         
         # set initial state
         
-        self.update = self.idle
+        self.update = self.drive
         
         # add vehicle constraint
         
@@ -180,6 +180,66 @@ class Car(types.KX_GameObject):
         
     # STATES
     
+    def start(self):
+        self.update = self.drive
+        
+    def drive(self):
+        
+        # get values from input
+        
+        front_brake_val = 0
+        rear_brake_val = 0
+        if self.hand_brake.positive:
+            if self.brake.positive:
+                front_brake_val = self.BRAKE_VAL
+            rear_brake_val = self.HAND_BRAKE_VAL
+        elif self.brake.positive:
+            front_brake_val = self.BRAKE_VAL
+            rear_brake_val = self.BRAKE_VAL
+            
+        engine_force = 0
+        wheel_drive_fac = 2 if self.WHEEL_DRIVE_MODE != FOUR_WHEEL_DRIVE else 1
+        if self.backward.positive:
+            engine_force = self.BACKWARD_VAL * wheel_drive_fac
+        elif self.forward.positive:
+            engine_force = -self.FORWARD_VAL * wheel_drive_fac
+            
+        dir = self.turn_left.positive - self.turn_right.positive
+        if dir:
+            angle_max = math.pi * self.WHEEL_TURN_FAC_MAX
+            self.steering_val = max(min(self.steering_val + dir * self.WHEEL_TURN_VAL, angle_max), -angle_max)
+        elif self.steering_val:
+            dir = -self.steering_val / abs(self.steering_val)
+            if dir == 1:
+                self.steering_val = min(self.steering_val + dir * self.WHEEL_TURN_VAL, 0)
+            else:
+                self.steering_val = max(self.steering_val + dir * self.WHEEL_TURN_VAL, 0)
+                
+        # apply values to vehicle constraint
+        
+        self.constraint.applyBraking(front_brake_val, 0)
+        self.constraint.applyBraking(front_brake_val, 1)
+        self.constraint.applyBraking(rear_brake_val, 2)
+        self.constraint.applyBraking(rear_brake_val, 3)
+        
+        if self.WHEEL_DRIVE_MODE == FRONT_WHEEL_DRIVE:
+            for i in range(0, 2):
+                self.constraint.applyEngineForce(engine_force, i)
+        elif self.WHEEL_DRIVE_MODE == REAR_WHEEL_DRIVE:
+            for i in range(2, 4):
+                self.constraint.applyEngineForce(engine_force, i)
+        elif self.WHEEL_DRIVE_MODE == FOUR_WHEEL_DRIVE:
+            for i in range(0, 4):
+                self.constraint.applyEngineForce(engine_force, i)
+                
+        self.constraint.setSteeringValue(self.steering_val, 0)
+        self.constraint.setSteeringValue(self.steering_val, 1)
+        
+        # apply orientation of steering wheel
+        
+        ori = Matrix.Rotation(-self.steering_val * self.STEERING_WHEEL_TURN_FAC, 3, "Y")
+        self.steering_wheel.localOrientation = ori
+        
     def idle(self):
         pass
         
