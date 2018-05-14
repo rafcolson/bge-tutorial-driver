@@ -1,3 +1,4 @@
+from bge import render
 from mathutils import Vector
 
 def mutate(cont, cls, *args):
@@ -21,3 +22,7 @@ def get_dimensions(obj):
             vert_XYZ = mesh.getVertex(mat_index, vert_index).XYZ
             [col_xyz[i].append(vert_XYZ[i]) for i in range(3)]
     return Vector([abs(max(axis)) + abs(min(axis)) for axis in col_xyz])
+
+def draw_line(v0, v1):
+    render.drawLine(v0, v1, (1, 1, 1))
+    

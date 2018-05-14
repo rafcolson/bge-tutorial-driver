@@ -239,6 +239,28 @@ class Car(types.KX_GameObject):
         self.update = self.idle
         self.door_sensor.collisionCallbacks.append(self.door_sensor_cb)
         
+    def exit_driver(self):
+        driv_pos = self.driver.worldPosition
+        driv_dim = utils.get_dimensions(self.driver)
+        sens_pos = self.door_sensor.worldPosition
+        sens_dim = utils.get_dimensions(self.door_sensor)
+        sens_axx = self.door_sensor.getAxisVect((1, 0, 0))
+        
+        for dir in (-1, 1):
+            driv_edg = sens_pos + sens_axx * dir * (sens_dim.x + driv_dim.x) * 0.5
+            
+            #utils.draw_line(driv_pos, driv_edg)
+            
+            hit_obj, _, _ = self.rayCast(driv_edg, driv_pos)
+            if hit_obj is None:
+                driv_cen = sens_pos + sens_axx * dir * sens_dim.x * 0.5
+                
+                self.driver.worldPosition = driv_cen
+                self.remove_driver()
+                return True
+                    
+        return False
+        
     # CALLBACKS
     
     def door_sensor_cb(self, hit_obj):
@@ -325,9 +347,10 @@ class Car(types.KX_GameObject):
         
     def park(self):
         if self.worldLinearVelocity.length + self.worldAngularVelocity.length < VELOCITY_MIN:
-            self.driver.worldPosition -= self.door_sensor.getAxisVect((1, 0, 0))
-            self.remove_driver()
-            self.update = self.settle
+            if self.exit_driver():
+                self.update = self.settle
+            else:
+                self.update = self.drive
         else:
             self.slowdown()
             
