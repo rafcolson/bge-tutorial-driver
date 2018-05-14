@@ -1,6 +1,7 @@
 from bge import types, constraints
 from collections import OrderedDict
 from mathutils import Matrix
+from player import Player
 import math, utils
 
 #constraints.setDebugMode(constraints.DBG_DRAWWIREFRAME)
@@ -11,6 +12,8 @@ constraints.setContactBreakingTreshold(0.005)
 BRAND_PROP_NAME             = "BRAND"
 STEERING_WHEEL_PROP_NAME    = "STEERING_WHEEL"
 WHEEL_PROP_NAME             = "WHEEL"
+DRIVER_SEAT_PROP_NAME       = "DRIVER_SEAT"
+DOOR_SENSOR_PROP_NAME       = "DOOR_SENSOR"
 
 WHEELS_DOWN_DIR             = (0.0, 0.0, -1.0)
 WHEELS_AXLE_DIR             = (-1.0, 0.0, 0.0)
@@ -121,14 +124,21 @@ class Car(types.KX_GameObject):
                 wheels[obj] = obj.localPosition.xyz
         self.wheels = OrderedDict(sorted(wheels.items(), key=lambda item: item[0][WHEEL_PROP_NAME]))
         
+        # get and store driver seat and door sensor
+        
+        self.driver_seat = utils.get_obj_by_property(self.children, DRIVER_SEAT_PROP_NAME)
+        self.door_sensor = utils.get_obj_by_property(self.children, DOOR_SENSOR_PROP_NAME)
+        
         # initialize variables
         
         self.constraint = None
+        self.driver = None
         self.steering_val = 0
         self.timer = 0
         
         # set initial state
         
+        self.door_sensor.collisionCallbacks.append(self.door_sensor_cb)
         self.update = self.settle
         
         # add vehicle constraint
@@ -203,6 +213,36 @@ class Car(types.KX_GameObject):
             self.constraint.applyEngineForce(0, i)
             self.constraint.applyBraking(self.BRAKE_VAL, i)
             
+    # DRIVER
+    
+    def add_driver(self, player):
+        player.suspendDynamics(True)
+        player.setParent(self.driver_seat)
+        player.worldTransform = self.driver_seat.worldTransform
+        player.update = player.inactive
+        self.driver = player
+        
+        self.update = self.start
+        self.door_sensor.collisionCallbacks.clear()
+        
+    # CALLBACKS
+    
+    def door_sensor_cb(self, hit_obj):
+        if not self.action.positive:
+            return
+        
+        if self.driver is None and isinstance(hit_obj, Player):
+            player = hit_obj
+            if player.update == player.active:
+                self.add_driver(player)
+                self.update = self.start
+                
+                if self.isSuspendDynamics:
+                    self.restoreDynamics()
+                    
+                if self.constraint is None:
+                    self.add_constraint()
+                    
     # STATES
     
     def start(self):
