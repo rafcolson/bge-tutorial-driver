@@ -1,5 +1,6 @@
-from bge import types
+from bge import types, constraints
 from collections import OrderedDict
+from mathutils import Matrix
 import utils
 
 # SET FINAL CONSTANTS
@@ -103,13 +104,79 @@ class Car(types.KX_GameObject):
                 wheels[obj] = obj.localPosition.xyz
         self.wheels = OrderedDict(sorted(wheels.items(), key=lambda item: item[0][WHEEL_PROP_NAME]))
         
+        # initialize variables
+        
+        self.constraint = None
+        self.steering_val = 0
+        
         # set initial state
         
         self.update = self.idle
         
+        # add vehicle constraint
+        
+        self.add_constraint()
+        
         # set max linear velocity
         
         self.linVelocityMax = self.LINEAR_VELOCITY_MAX
+        
+    # CONSTRAINT
+        
+    def add_constraint(self):
+        
+        if self.constraint is not None:
+            return
+            
+        # create and store vehicle constraint
+        
+        constraint = constraints.createConstraint(self.getPhysicsId(), 0, constraints.VEHICLE_CONSTRAINT)
+        self.constraint = constraints.getVehicleConstraint(constraint.getConstraintId())
+        
+        # move wheels to vehicle constraint and set values
+        
+        for i, wheel in enumerate(self.wheels):
+            wheel.removeParent()
+            
+            susp_rest_len = self.WHEELS_SUSP_REST_LEN[i]
+            attach_pos = self.wheels[wheel].xyz
+            attach_pos.z += susp_rest_len
+            down_dir = WHEELS_DOWN_DIR
+            axle_dir = WHEELS_AXLE_DIR
+            radius = (utils.get_dimensions(wheel).z * wheel.localScale.z) * 0.5
+            has_steering = WHEELS_HAS_STEERING[i]
+            
+            self.constraint.addWheel(wheel, attach_pos, down_dir, axle_dir, susp_rest_len, radius, has_steering)
+            
+            self.constraint.setTyreFriction(self.FRICTION_VAL, i)
+            self.constraint.setSuspensionDamping(self.DAMPING_VAL, i)
+            self.constraint.setSuspensionCompression(self.COMPRESSION_VAL, i)
+            self.constraint.setSuspensionStiffness(self.STIFFNESS_VAL, i)
+            self.constraint.setRollInfluence(self.ROLL_VAL, i)
+            
+        # apply steering value
+        
+        self.constraint.setSteeringValue(self.steering_val, 0)
+        self.constraint.setSteeringValue(self.steering_val, 1)
+        
+    def remove_constraint(self):
+        
+        if self.constraint is None:
+            return
+            
+        # parent wheels
+        
+        ori = Matrix.Rotation(self.steering_val, 3, "Z")
+        for i, wheel in enumerate(self.wheels):
+            wheel.setParent(self)
+            wheel.worldPosition = self.constraint.getWheelPosition(i)
+            if i < 2:
+                wheel.localOrientation = ori
+                
+        # remove vehicle constraint
+        
+        constraints.removeConstraint(self.constraint.getConstraintId())
+        self.constraint = None
         
     # STATES
     
