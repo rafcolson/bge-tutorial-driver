@@ -21,9 +21,7 @@ class Player(types.KX_GameObject):
         
         # INITIALIZE STATE
         
-        self.setParent("Car")
-        self.worldPosition.x = self.parent.worldPosition.x
-        self.update = self.inactive
+        self.update = self.active
         
     def active(self):
         

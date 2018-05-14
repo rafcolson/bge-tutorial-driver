@@ -20,6 +20,8 @@ FRONT_WHEEL_DRIVE           = 0
 REAR_WHEEL_DRIVE            = 1
 FOUR_WHEEL_DRIVE            = 2
 
+SETTLE_TIME                 = 120
+
 # DEFINE BRANDS
 
 BRANDS = {
@@ -123,10 +125,11 @@ class Car(types.KX_GameObject):
         
         self.constraint = None
         self.steering_val = 0
+        self.timer = 0
         
         # set initial state
         
-        self.update = self.drive
+        self.update = self.settle
         
         # add vehicle constraint
         
@@ -193,6 +196,13 @@ class Car(types.KX_GameObject):
         constraints.removeConstraint(self.constraint.getConstraintId())
         self.constraint = None
         
+    # CAR
+    
+    def slowdown(self):
+        for i in range(self.constraint.getNumWheels()):
+            self.constraint.applyEngineForce(0, i)
+            self.constraint.applyBraking(self.BRAKE_VAL, i)
+            
     # STATES
     
     def start(self):
@@ -254,6 +264,17 @@ class Car(types.KX_GameObject):
         
         ori = Matrix.Rotation(-self.steering_val * self.STEERING_WHEEL_TURN_FAC, 3, "Y")
         self.steering_wheel.localOrientation = ori
+        
+    def settle(self):
+        if self.timer == SETTLE_TIME:
+            self.suspendDynamics()
+            self.remove_constraint()
+            self.update = self.idle
+            self.timer = 0
+            return
+            
+        self.slowdown()
+        self.timer += 1
         
     def idle(self):
         pass
