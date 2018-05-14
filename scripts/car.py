@@ -1,6 +1,6 @@
 from bge import types, constraints
 from collections import OrderedDict
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 from player import Player
 import math, utils
 
@@ -24,6 +24,7 @@ REAR_WHEEL_DRIVE            = 1
 FOUR_WHEEL_DRIVE            = 2
 
 VELOCITY_MIN                = 0.5
+RAY_OFFSET                  = 0.5
 SETTLE_TIME                 = 120
 
 # DEFINE BRANDS
@@ -245,6 +246,7 @@ class Car(types.KX_GameObject):
         sens_pos = self.door_sensor.worldPosition
         sens_dim = utils.get_dimensions(self.door_sensor)
         sens_axx = self.door_sensor.getAxisVect((1, 0, 0))
+        worl_axz = Vector((0, 0, 1))
         
         for dir in (-1, 1):
             driv_edg = sens_pos + sens_axx * dir * (sens_dim.x + driv_dim.x) * 0.5
@@ -254,10 +256,18 @@ class Car(types.KX_GameObject):
             hit_obj, _, _ = self.rayCast(driv_edg, driv_pos)
             if hit_obj is None:
                 driv_cen = sens_pos + sens_axx * dir * sens_dim.x * 0.5
+                driv_off_pos = worl_axz * driv_dim.z * 0.5
+                driv_off_neg = worl_axz * (driv_dim.z * 0.5 + RAY_OFFSET)
+                driv_top = driv_cen + driv_off_pos
+                driv_bot = driv_cen - driv_off_neg
                 
-                self.driver.worldPosition = driv_cen
-                self.remove_driver()
-                return True
+                #utils.draw_line(driv_top, driv_bot)
+                
+                _, hit_pos, _ = self.rayCast(driv_bot, driv_top)
+                if hit_pos is not None:
+                    self.driver.worldPosition = hit_pos + driv_off_pos
+                    self.remove_driver()
+                    return True
                     
         return False
         
