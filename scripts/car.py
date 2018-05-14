@@ -12,6 +12,7 @@ constraints.setContactBreakingTreshold(0.005)
 BRAND_PROP_NAME             = "BRAND"
 STEERING_WHEEL_PROP_NAME    = "STEERING_WHEEL"
 WHEEL_PROP_NAME             = "WHEEL"
+VISUAL_PROP_NAME            = "VISUAL"
 DRIVER_SEAT_PROP_NAME       = "DRIVER_SEAT"
 DOOR_SENSOR_PROP_NAME       = "DOOR_SENSOR"
 
