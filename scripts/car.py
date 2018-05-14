@@ -81,7 +81,12 @@ class Car(types.KX_GameObject):
     def suspendDynamics(self, *args):
         self.worldLinearVelocity.zero()
         self.worldAngularVelocity.zero()
+        self.collisionCallbacks.clear()
         super(Car, self).suspendDynamics(*args)
+        
+    def restoreDynamics(self):
+        self.collisionCallbacks.append(self.body_sensor_cb)
+        super(Car, self).restoreDynamics()
         
     # INITIALIZATION
     
@@ -290,6 +295,21 @@ class Car(types.KX_GameObject):
                 if self.constraint is None:
                     self.add_constraint()
                     
+    def body_sensor_cb(self, hit_obj):
+        if hit_obj in self.children:
+            return
+        
+        if isinstance(hit_obj, Car) and hit_obj.driver is None:
+            hit_obj.timer = 0
+            
+            if hit_obj.isSuspendDynamics:
+                hit_obj.restoreDynamics()
+                
+            if hit_obj.constraint is None:
+                hit_obj.add_constraint()
+                
+            hit_obj.update = hit_obj.settle
+                
     # STATES
     
     def start(self):
