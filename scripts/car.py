@@ -3,6 +3,9 @@ from collections import OrderedDict
 from mathutils import Matrix
 import math, utils
 
+#constraints.setDebugMode(constraints.DBG_DRAWWIREFRAME)
+constraints.setContactBreakingTreshold(0.005)
+
 # SET FINAL CONSTANTS
 
 BRAND_PROP_NAME             = "BRAND"
@@ -60,6 +63,18 @@ BRANDS = {
 
 class Car(types.KX_GameObject):
     
+    # OVERRIDES
+    
+    def endObject(self):
+        self.remove_driver()
+        self.remove_constraint()
+        super(Car, self).endObject()
+        
+    def suspendDynamics(self, *args):
+        self.worldLinearVelocity.zero()
+        self.worldAngularVelocity.zero()
+        super(Car, self).suspendDynamics(*args)
+        
     # INITIALIZATION
     
     def __init__(self, own):
