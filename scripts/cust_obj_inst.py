@@ -1,5 +1,5 @@
 from bge import types
-import utils
+from scripts import game
 
 class CustomObject(types.KX_GameObject):
     
@@ -9,8 +9,10 @@ class CustomObject(types.KX_GameObject):
     def update(self):
         pass
         
-def mutate(cont):
-    utils.mutate(cont, CustomObject)
+def init(cont):
+    if not cont.sensors[0].positive:
+        return
+    game.utils.mutate(cont, CustomObject)
     
 def update(cont):
     cont.owner.update()
