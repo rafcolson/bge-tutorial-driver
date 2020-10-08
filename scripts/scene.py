@@ -75,7 +75,7 @@ class Scene(types.KX_GameObject):
 			loading_step_next()
 					
 		elif self.loading_step == 4:
-			self.scene.addObject(FOLLOWER)
+			#self.scene.addObject(FOLLOWER)
 			self.scene.addObject(LIGHTING)
 			loading_step_next()
 			self.state = self.STATE_UPDATE

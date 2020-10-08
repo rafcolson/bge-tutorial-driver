@@ -114,7 +114,8 @@ class Player(types.KX_GameObject):
 def init(cont):
 	if not cont.sensors[0].positive:
 		return
-	game.target = game.player = game.utils.mutate(cont, Player)
+	game.player = player = game.utils.mutate(cont, Player)
+	game.target = player.focus
 	
 def update(cont):
 	cont.owner.update()

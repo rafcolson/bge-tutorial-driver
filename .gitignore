@@ -1,3 +1,6 @@
+_TEMP
+2.79
 *.pyc
 *.blend1
-_TEMP
+*.dll
+*.exe

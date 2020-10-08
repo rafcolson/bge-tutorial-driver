@@ -32,10 +32,16 @@ class Follower(types.KX_GameObject):
 		
 		# add input mappings for rotation
 		
-		game.input["f_rotate_right"] = {"k": ["m"], "g0": ["axis1-left"]}
-		game.input["f_rotate_left"] = {"k": ["k"], "g0": ["axis1-right"]}
+		game.input["f_rotate_right"] = {"k": ["m"], "g0": ["axis1-right"]}
+		game.input["f_rotate_left"] = {"k": ["k"], "g0": ["axis1-left"]}
 		game.input["f_rotate_up"] = {"k": ["l"], "g0": ["axis1-up"]}
 		game.input["f_rotate_down"] = {"k": ["o"], "g0": ["axis1-down"]}
+		
+	def disable_rotation():
+		pass
+		
+	def enable_rotation():
+		pass
 		
 	def update(self):
 		
@@ -56,6 +62,8 @@ class Follower(types.KX_GameObject):
 			
 		# update position
 		
+		vec = self.target.focus.worldPosition
+		
 		dir_x = game.input.down("f_rotate_up") - game.input.down("f_rotate_down")
 		dir_z = game.input.down("f_rotate_right") - game.input.down("f_rotate_left")
 		if dir_x or dir_z:
@@ -68,7 +76,7 @@ class Follower(types.KX_GameObject):
 		ori = self.target.worldOrientation.copy()
 		ori.rotate(self.rotation)
 		off = Vector((0, -self.min, self.height))
-		vec = self.target.focus.worldPosition + ori * off
+		vec += ori * off
 		
 		dif = vec - self.worldPosition
 		if dif.magnitude > self.max:

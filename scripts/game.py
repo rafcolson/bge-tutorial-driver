@@ -533,8 +533,6 @@ class Input(OrderedDict):
 	def update(self):
 		for gamepad in self.gamepads:
 			gamepad.update()
-		if input.hit("game_restart"):
-			logic.restartGame()
 			
 input = Input()
 
@@ -567,18 +565,17 @@ def free(*libs):
 		logic.LibFree(lib_name)
 		print('Freeing %s' % lib_name)
 		
-def exit():
-	own = logic.getCurrentController().owner
-	own.state = own.STATE_END
-
 class Game(types.KX_GameObject):
 	
+	STATE_INIT = logic.KX_STATE1
 	STATE_LOAD = logic.KX_STATE2
 	STATE_UPDATE = logic.KX_STATE3
-	STATE_END = logic.KX_STATE4
+	STATE_RESTART = logic.KX_STATE4
+	STATE_END = logic.KX_STATE5
 	
 	def __init__(self, own):
-		input["game_restart"] = {"k": ["p"], "g0": ["btn-8"]}
+		input["game_restart"] = {"k": ["p"], "g0": ["btn-7"]}
+		input["game_end"] = {"k": ["esc"], "g0": ["btn-6"]}
 		
 	def init(self):
 		logic.addScene(SCENE)
@@ -595,7 +592,9 @@ class Game(types.KX_GameObject):
 		
 	def update(self):
 		if input.hit("game_restart"):
-			exit()
+			self.state = self.STATE_RESTART
+		elif input.hit("game_end"):
+			self.state = self.STATE_END
 			
 def init(cont):
 	if not cont.sensors[0].positive:
@@ -610,9 +609,15 @@ def update(cont):
 	input.update()
 	cont.owner.update()
 	
-def end(cont):
-	if cont.sensors[0].positive:
-		free()
-	else:
-		logic.endGame()
+def restart(cont):
+	if not cont.sensors[0].positive:
+		return
+	free()
+	logic.restartGame()
 		
+def end(cont):
+	if not cont.sensors[0].positive:
+		return
+	free()
+	logic.endGame()
+	

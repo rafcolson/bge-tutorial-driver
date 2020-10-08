@@ -328,7 +328,7 @@ class Car(types.KX_GameObject):
 		
 		# switch target
 		
-		game.target = self
+		game.target = self.focus
 		
 	def remove_driver(self, position):
 		self.door_sensor.collisionCallbacks.append(self.door_sensor_cb)
@@ -351,7 +351,7 @@ class Car(types.KX_GameObject):
 		
 		# switch target
 		
-		game.target = player
+		game.target = player.focus
 		
 	def exit_driver(self):
 		driv_pos = self.driver.worldPosition
