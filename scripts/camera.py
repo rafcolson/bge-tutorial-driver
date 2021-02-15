@@ -19,6 +19,5 @@ def update(cont):
 	if game.target is not None and game.target is not actu.object:
 		actu.object = game.target
 		cont.activate(actu)
-		print(actu.object)
 	cont.owner.update()
 	

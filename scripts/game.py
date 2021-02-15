@@ -536,6 +536,12 @@ class Input(OrderedDict):
 			
 input = Input()
 
+def get_path(*args):
+	p = logic.expandPath("//")
+	if "Game.blend" not in os.listdir(p):
+		p = logic.expandPath("//..\\")
+	return os.path.join(p, *args)
+	
 def get_players_file_name_and_path():
 	return PLAYERS_FILE_NAME, os.path.join(logic.expandPath("//"), OBJECTS_FOLDER, PLAYERS_FILE_NAME + BLEND_FILE_EXT)
 	

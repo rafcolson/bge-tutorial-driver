@@ -4,6 +4,7 @@ from mathutils import Matrix, Vector
 from scripts.player import Player
 from scripts import game
 from math import pi
+import aud
 
 #constraints.setDebugMode(constraints.DBG_DRAWWIREFRAME)
 constraints.setContactBreakingTreshold(0.005)
@@ -18,6 +19,9 @@ VISUAL_PROP_NAME			= "VISUAL"
 DRIVER_SEAT_PROP_NAME   	= "DRIVER_SEAT"
 DOOR_SENSOR_PROP_NAME   	= "DOOR_SENSOR"
 FOCUS_PROP_NAME 			= "FOCUS"
+
+CARS_SOUNDS_FOLDER_PATH		= game.get_path("sounds", "cars")
+MOTOR_DEFAULT_SOUND_PATH	= CARS_SOUNDS_FOLDER_PATH + "\motor_default.ogg"
 
 WHEELS_DOWN_DIR 			= (0.0, 0.0, -1.0)
 WHEELS_AXLE_DIR 			= (-1.0, 0.0, 0.0)
@@ -93,6 +97,86 @@ BRANDS = {
 	}
 }
 
+class CarSounds:
+	
+	def __init__(self, vehicle):
+		self.vehicle = vehicle
+		self.device = aud.device()
+		self.device.distance_model = 1
+		#self.device.lock()
+		self.active = False
+		self.activate()
+		
+	def activate(self):
+		if self.active:
+			return
+			
+		#self.device.unlock()
+		motor_sound = aud.Factory.buffer(aud.Factory(MOTOR_DEFAULT_SOUND_PATH))
+		self.motor_handle = self.device.play(motor_sound)
+		self.motor_handle.loop_count = -1
+		self.active = True
+		
+	def deactivate(self):
+		#if not self.active:
+		#	return
+			
+		#self.motor_handle.stop()
+		#self.device.lock()
+		#self.active = False
+		pass
+		
+	def update(self):
+		
+		def update_device():
+			scene_camera = self.vehicle.scene.active_camera
+			self.device.listener_location = scene_camera.worldPosition
+			self.device.listener_orientation = scene_camera.worldOrientation.to_quaternion()
+			
+		def update_motor_sound(cte=4):
+			lin_vel_mag = self.vehicle.localLinearVelocity.magnitude
+			self.motor_handle.pitch = (lin_vel_mag / 2 + cte) / abs(self.vehicle.gears.gear) / cte
+			self.motor_handle.location = self.vehicle.worldPosition
+			
+		if not self.active:
+			return
+			
+		update_device()
+		update_motor_sound()
+		
+class CarGears:
+	
+	def get_intervals(self):
+		factors = [0, 0.15, 0.275, 0.4, 0.5, 0.75, 1.0]
+		return [self.car.LINEAR_VELOCITY_MAX * f * 10 for f in factors]
+		
+	def __init__(self, car):
+		self.car = car
+		self.intervals = self.get_intervals()
+		self.num_gears = len(self.intervals) - 2
+		self.activate()
+		
+	def activate(self):
+		self.gear = 1
+		
+	def deactivate(self):
+		self.gear = -1
+		
+	def update(self):
+		if self.gear == -1:
+			return
+			
+		local_lin_vel = self.car.localLinearVelocity
+		if not self.car.engine_force:
+			self.gear = -1
+		else:
+			lin_vel_mag = local_lin_vel.magnitude
+			for i in range(self.num_gears):
+				if self.intervals[i] <= lin_vel_mag <= self.intervals[i + 1]:
+					self.gear = i + 1
+					break
+		return self.gear
+		
 class Car(types.KX_GameObject):
 	
 	# INPUT MAPPINGS
@@ -114,6 +198,7 @@ class Car(types.KX_GameObject):
 	def endObject(self):
 		self.remove_driver()
 		self.remove_constraint()
+		self.sounds.device = None
 		super(Car, self).endObject()
 		
 	def suspendDynamics(self, *args):
@@ -195,12 +280,18 @@ class Car(types.KX_GameObject):
 		
 		self.focus = game.utils.get_obj_by_property(self.children, FOCUS_PROP_NAME)
 		
+		# get gearbox and sounds
+		
+		self.gears = CarGears(self)
+		self.sounds = CarSounds(self)
+		
 		# initialize variables
 		
 		self.median_point, self.dimensions = game.utils.get_median_point_and_dimensions(self)
 		self.box_points = game.utils.get_box_points(self.dimensions, self.median_point)
 		self.constraint = None
 		self.driver = None
+		self.engine_force = 0
 		self.steering_val = 0
 		self.timer = 0
 		
@@ -324,9 +415,14 @@ class Car(types.KX_GameObject):
 		player.setParent(self.driver_seat)
 		player.worldTransform = self.driver_seat.worldTransform
 		player.update = player.inactive
-		self.driver = player
 		
-		# switch target
+		# set driver and activate gear and sounds
+		
+		self.driver = player
+		self.gearbox.activate()
+		self.sounds.activate()
+		
+		# set game target
 		
 		game.target = self.focus
 		
@@ -347,9 +443,14 @@ class Car(types.KX_GameObject):
 		player.alignAxisToVect((0, 0, 1), 2)
 		player.worldPosition = position
 		player.update = player.active
-		self.driver = None
 		
-		# switch target
+		# dispose driver and deactivate car sounds
+		
+		self.driver = None
+		self.sounds.deactivate()
+		self.gearbox.deactivate()
+		
+		# reset game target
 		
 		game.target = player.focus
 		
@@ -434,12 +535,12 @@ class Car(types.KX_GameObject):
 			front_brake_val = self.BRAKE_VAL
 			rear_brake_val = self.BRAKE_VAL
 			
-		engine_force = 0
+		self.engine_force = 0
 		wheel_drive_fac = 2 if self.WHEEL_DRIVE_MODE != FOUR_WHEEL_DRIVE else 1
 		if game.input.down("c_backward"):
-			engine_force = self.BACKWARD_VAL * wheel_drive_fac
+			self.engine_force = self.BACKWARD_VAL * wheel_drive_fac
 		elif game.input.down("c_forward"):
-			engine_force = -self.FORWARD_VAL * wheel_drive_fac
+			self.engine_force = -self.FORWARD_VAL * wheel_drive_fac
 			
 		dir = game.input.down("c_turn_left") - game.input.down("c_turn_right")
 		if dir:
@@ -461,13 +562,13 @@ class Car(types.KX_GameObject):
 		
 		if self.WHEEL_DRIVE_MODE == FRONT_WHEEL_DRIVE:
 			for i in range(0, 2):
-				self.constraint.applyEngineForce(engine_force, i)
+				self.constraint.applyEngineForce(self.engine_force, i)
 		elif self.WHEEL_DRIVE_MODE == REAR_WHEEL_DRIVE:
 			for i in range(2, 4):
-				self.constraint.applyEngineForce(engine_force, i)
+				self.constraint.applyEngineForce(self.engine_force, i)
 		elif self.WHEEL_DRIVE_MODE == FOUR_WHEEL_DRIVE:
 			for i in range(0, 4):
-				self.constraint.applyEngineForce(engine_force, i)
+				self.constraint.applyEngineForce(self.engine_force, i)
 				
 		self.constraint.setSteeringValue(self.steering_val, 0)
 		self.constraint.setSteeringValue(self.steering_val, 1)
@@ -503,5 +604,10 @@ def init(cont):
 	game.utils.mutate(cont, Car)
 	
 def update(cont):
-	cont.owner.update()
+	own = cont.owner
+	own.update()
+	if own.update == own.idle:
+		pass
+	own.gears.update()
+	own.sounds.update()
 	
